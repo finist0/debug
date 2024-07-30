@@ -1,0 +1,41 @@
+# Allows to set high MTU for bnx2x driver driven network interface,
+# even if it leads to 2nd order pages allocations.
+#
+# Developed for vz9 kernel 5.14.0-427.26.1.vz9.66.1.
+#
+
+
+#global dev_array%
+global mtu_array%
+
+probe begin {
+    printf("Starting to tweak bnx2x_change_mtu()\n")
+}
+
+probe end {
+    printf("Unloading tweak for bnx2x_change_mtu()\n")
+}
+
+probe module("bnx2x").function("bnx2x_change_mtu").call {
+    printf("Intercepting bnx2x_change_mtu() call\n")
+#    dev_array[tid()] = $dev
+    devname = kernel_string(@cast($dev, "struct net_device")->name)
+    mtu_array[tid()] = $new_mtu
+    printf("bnx2x_change_mtu() called with args: dev=%lx (%s), new_mtu=%lx\n",
+	   $dev, devname, $new_mtu)
+}
+
+probe module("bnx2x").statement("bnx2x_change_mtu@*+28") {
+    printf("bnx2x_change_mtu(): in the middle of nowhere dev->mtu = %d, "
+	   "we are trying to setup MTU = %d\n",
+	   $dev->mtu, mtu_array[tid()])
+
+    if (mtu_array[tid()] > $dev->mtu) {
+	    printf("bnx2x_change_mtu(): let's help to setup large MTU\n")
+	    $dev->mtu = mtu_array[tid()]
+    }
+
+#    delete dev_array[tid()]
+    delete mtu_array[tid()]
+}
+
