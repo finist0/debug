@@ -1,0 +1,43 @@
+#!/usr/bin/env bpftrace
+//
+//  The script collects statistic on number of schedules of each process
+//  on each cpu. Upon Ctrl-c the scripts prints 2 hash maps:
+//  1. comms of processes, format:
+//  	@comms[$PID]: $PROCESS_COMM
+//
+//  2. counts - how many times a process has been scheduled on a cpu, format:
+//  	@counts[$PID, $CPU]: $NUMBER_OF_SCHEDULES
+//
+//  Author: Konstantin Khorenko <khorenko@openvz.org>
+//
+//  Usage example:
+//  	# bpftrace jumping_processes.bt -o log6
+//  	# cat log6 | grep counts | sed -e "s/[]\[,]/ /g" | sort -n -k 2
+//
+//  Results will be grouped by PID, so it will be convenient to see if a process
+//  was running on different cpus.
+//
+
+BEGIN {
+    printf("Starting to collect CPU scheduling stats...\n");
+}
+
+// Tracepoint to capture the sched_switch event
+tracepoint:sched:sched_switch
+{
+    // Get the next_pid and current CPU
+    $tgid = args->next_pid;
+    $cpu = cpu;
+
+    // Increment the count for this tgid and cpu
+    @counts[$tgid, $cpu] += 1;
+
+    // Store the command name the first time the process is scheduled
+    if (@counts[$tgid, $cpu] == 1) {
+        @comms[$tgid] = args->next_comm;
+    }
+}
+
+END {
+    printf("CPU scheduling stats:\n");
+}
