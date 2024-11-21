@@ -31,4 +31,14 @@ while read -r srcname name ver rel arch; do
 	    echo "DebugSOURCE for package \"$name\" is not found"
     fi
 
+    # debuginfo package for, say, "openssl-libs" package most often depends on
+    # debuginfo for "openssl" package.
+    # i don't want to resolve proper rpm dependences, following heuristic is
+    # enough for now.
+    if [ "$name" != "$srcname" ]; then
+	koji_str="$link_tmpl/$srcname/$ver/$rel/$arch/$srcname-debuginfo-$ver-$rel.$arch.rpm"
+	wget --no-clobber -q "$koji_str" ||
+	    echo "Debuginfo for package \"$srcname\" is not found"
+    fi
+
 done < "$pkglistfile"
