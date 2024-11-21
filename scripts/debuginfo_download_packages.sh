@@ -19,9 +19,16 @@ pkglistfile="$1"
 link_tmpl="http://kojistorage.dev.vzint.dev/packages"
 
 while read -r srcname name ver rel arch; do
-    #echo ".$name $ver $rel $arch."
+    #echo ".$srcname $name $ver $rel $arch."
     koji_str="$link_tmpl/$srcname/$ver/$rel/$arch/$name-debuginfo-$ver-$rel.$arch.rpm"
     wget --no-clobber -q "$koji_str" ||
-	    echo "Debuginfo for package \"$name\" is not found"
+	echo "Debuginfo for package \"$name\" is not found"
+
+    # qemu-kvm debugging requires "debugsource" package along with "debuginfo"
+    if [ "$name" = "qemu-kvm" ]; then
+	koji_str="$link_tmpl/$srcname/$ver/$rel/$arch/$name-debugsource-$ver-$rel.$arch.rpm"
+	wget --no-clobber -q "$koji_str" ||
+	    echo "DebugSOURCE for package \"$name\" is not found"
+    fi
 
 done < "$pkglistfile"
